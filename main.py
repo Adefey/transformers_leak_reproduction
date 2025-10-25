@@ -71,7 +71,6 @@ class Model:
         """
         Process images into embeddings
         """
-        logger.info(f"Start encoding images")
         image_list = [Image.open(io.BytesIO(image)) for image in images]
         with torch.inference_mode():
             inputs = self.processor(
@@ -82,7 +81,6 @@ class Model:
             result = self._encode(inputs)
         for image in image_list:
             image.close()
-        logger.info(f"Finished encoding images")
         return result
 
 
@@ -103,6 +101,7 @@ image_urls = [
 image_data = [requests.get(image_url, stream=True).raw.data for image_url in image_urls] * 5
 shuffle(image_urls)
 
+
 def do_model_calls_loop():
     while True:
         try:
@@ -112,9 +111,12 @@ def do_model_calls_loop():
                 files.append(image)
 
             model.encode_images(files)
-            logger.info(f"Batch processed. Memory usage NO FASTAPI: {get_memory_free_percent():.3f}%")
+            logger.info(
+                f"Batch processed. Memory free NO FASTAPI: {get_memory_free_percent():.3f}%"
+            )
 
         except Exception as exc:
             logger.error(f"Cannot call model: {repr(exc)}")
+
 
 do_model_calls_loop()

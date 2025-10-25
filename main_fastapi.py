@@ -106,6 +106,7 @@ image_urls = [
 image_data = [requests.get(image_url, stream=True).raw.data for image_url in image_urls] * 5
 shuffle(image_urls)
 
+
 def simulate_api_requests():
     # let the model load
     time.sleep(5)
@@ -121,6 +122,7 @@ def simulate_api_requests():
         except Exception as exc:
             logger.error(f"Cannot send request: {repr(exc)}")
 
+
 app = FastAPI(title="Embedding Microservise")
 
 
@@ -129,7 +131,7 @@ app = FastAPI(title="Embedding Microservise")
 )
 def post_images_embeddings(images: list[bytes] = File()):
     emb = model.encode_images(images)
-    logger.info(f"Batch processed. Memory usage WITH FASTAPI: {get_memory_free_percent():.3f}%")
+    logger.info(f"Batch processed. Memory free WITH FASTAPI: {get_memory_free_percent():.3f}%")
     return emb
 
 
