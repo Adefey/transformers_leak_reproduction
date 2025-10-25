@@ -3,12 +3,15 @@ from random import shuffle
 import psutil
 import logging
 import sys
+import threading
+from fastapi import FastAPI, File
 import ctypes
 import io
 import logging
 import os
-
+import uvicorn
 import torch
+import time
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
@@ -103,18 +106,34 @@ image_urls = [
 image_data = [requests.get(image_url, stream=True).raw.data for image_url in image_urls] * 5
 shuffle(image_urls)
 
-def do_model_calls_loop():
+def simulate_api_requests():
+    # let the model load
+    time.sleep(5)
     while True:
         try:
             files = []
 
             for image in image_data:
-                files.append(image)
+                files.append(("images", image))
 
-            model.encode_images(files)
-            logger.info(f"Batch processed. Memory usage NO FASTAPI: {get_memory_free_percent():.3f}%")
+            requests.post("http://localhost:8000/api/v1/images_embeddings", files=files)
 
         except Exception as exc:
-            logger.error(f"Cannot call model: {repr(exc)}")
+            logger.error(f"Cannot send request: {repr(exc)}")
 
-do_model_calls_loop()
+app = FastAPI(title="Embedding Microservise")
+
+
+@app.post(
+    "/api/v1/images_embeddings",
+)
+def post_images_embeddings(images: list[bytes] = File()):
+    emb = model.encode_images(images)
+    logger.info(f"Batch processed. Memory usage WITH FASTAPI: {get_memory_free_percent():.3f}%")
+    return emb
+
+
+requests_sender_thread = threading.Thread(target=simulate_api_requests, daemon=True)
+requests_sender_thread.start()
+
+uvicorn.run(app, host="0.0.0.0", port=8000)
