@@ -74,7 +74,6 @@ class Model:
         """
         Process images into embeddings
         """
-        logger.info(f"Start encoding images")
         image_list = [Image.open(io.BytesIO(image)) for image in images]
         with torch.inference_mode():
             inputs = self.processor(
@@ -85,7 +84,6 @@ class Model:
             result = self._encode(inputs)
         for image in image_list:
             image.close()
-        logger.info(f"Finished encoding images")
         return result
 
 
