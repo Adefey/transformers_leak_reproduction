@@ -1,0 +1,4 @@
+services:
+  embedding-service:
+    build: .
+    container_name: embedding-service
