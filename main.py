@@ -14,6 +14,24 @@ import torch
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s",
+    datefmt="%H:%M:%S",
+    handlers=[
+        logging.StreamHandler(stream=sys.stdout),
+    ],
+)
+
+logger = logging.getLogger(__name__)
+
+
+def get_memory_free_percent():
+    mem_total = psutil.virtual_memory().total
+    mem_available = psutil.virtual_memory().available
+    usage = mem_available / mem_total * 100
+    return usage
+
 
 def trim_memory():
     libc = ctypes.CDLL("libc.so.6")
@@ -72,14 +90,6 @@ class Model:
 
 model = Model()
 
-
-def get_memory_free_percent():
-    mem_total = psutil.virtual_memory().total
-    mem_available = psutil.virtual_memory().available
-    usage = mem_available / mem_total * 100
-    return usage
-
-
 image_urls = [
     "https://i.pinimg.com/originals/c5/2f/b0/c52fb0e9de148e812c542414ee46206e.jpg",
     "https://i.pinimg.com/736x/bd/17/11/bd17116b655e6ecb00390fe6746707fc.jpg",
@@ -91,37 +101,27 @@ image_urls = [
     "https://i.pinimg.com/originals/33/21/51/332151582c4a4868c428f118d302f0a5.png",
     "https://i.pinimg.com/originals/54/22/76/542276c97d0b76facfbc91d505090b2e.png",
     "https://i.pinimg.com/originals/24/ef/77/24ef771f5bc818beb6430efa2725b798.png",
-] * 3
+]
+image_data = [requests.get(image_url, stream=True).raw.data for image_url in image_urls] * 5
+shuffle(image_urls)
 
 
 def simulate_api_requests():
     while True:
         try:
-            shuffle(image_urls)
-
             files = []
 
-            for image_url in image_urls:
-                resp = requests.get(image_url, stream=True)
-                image_data = resp.raw.data
-                files.append(("images", image_data))
+            for image in image_data:
+                files.append(("images", image))
 
             logger.info(f"Sending request with {len(files)} files")
             requests.post("http://localhost:8000/api/v1/images_embeddings", files=files)
             logger.info(f"Sending request with {len(files)} files - DONE")
+
         except Exception as exc:
             logger.error(f"Cannot send request: {repr(exc)}")
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s",
-    datefmt="%H:%M:%S",
-    handlers=[
-        logging.StreamHandler(stream=sys.stdout),
-    ],
-)
 
-logger = logging.getLogger(__name__)
 model = Model()
 app = FastAPI(title="Embedding Microservise")
 
@@ -134,6 +134,7 @@ def post_images_embeddings(images: list[bytes] = File()):
     emb = model.encode_images(images)
     logger.info(f"Finished /api/v1/images_embeddings. Mem free: {get_memory_free_percent():.3f}%")
     return emb
+
 
 requests_sender_thread = threading.Thread(target=simulate_api_requests, daemon=True)
 requests_sender_thread.start()
